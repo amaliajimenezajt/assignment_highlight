@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>d3.js data driven page</title>
+        <script src="https://d3js.org/d3.v6.min.js"></script>
+        <style>
+
+body {background-color: rgb(247, 247, 233);text-align:center;}
+        .titulo {
+        font-size: 25px;
+        font-family: "Verdana";
+        color: #2c4792;
+        text-shadow: 0.5px 0.7px black;
+        margin: 20px;
+        text-align: center;
+        }
+
+        .second{
+font-size: 18px;
+font-family: "Verdana";
+color: #1b3b1d;
+text-shadow: 0.5px 0.2px rgb(91, 165, 147);
+margin: 10px;
+text-align: center;
+}
+.third{
+font-size: 13px;
+font-family: "Verdana";
+color: #5020d1;
+margin: 5px;
+text-align: center;
+}
+
+.four{
+font-size: 13px;
+font-family: "Verdana";
+color: #da284e;
+margin: 5px;
+text-align: center;
+}
+
+            #myCanvas {
+                background-color: rgb(215, 230, 208);
+            }
+
+            th {
+                color: blue;
+            }
+
+            .name{
+                color: black;
+                border: solid black 1pt;
+            }
+            .name:hover {
+                border-width: 2pt;
+            }
+
+            .date {
+                color: green;
+            }
+            .date:hover
+            {
+                font-weight: bold;
+            }
+        </style>
+    </head>
+
+    <body>
+        <p>
+            <div class="titulo">
+                DATA TIDYING AND REPORTING
+                </div>
+                <br>
+                <div class="second">
+                    AMALIA JIMENEZ TOLEDANO
+                </div>
+                <br>
+                <div class="third">
+                    100446255@alumnos.uc3m.es
+                </div>
+                
+                <div class="second">
+                  HIGHLIGHT ASSIGNMENT
+                </div>
+                <div class="four">SELECT THE YEAR YOU WANT TO DISPLAY AND THEN CLICK ON THE COMPANY TO DISPLAY THE CORRESPONDING HISTOGRAM.</div>
+            <div id="dateSelector"></div>
+            <svg id="myCanvas" style="width:100%; height: 200px;"></svg>
+            <table id="myTable" style ="float:center; margin-left: 10.5cm; font-size: 15px;">
+                <thead></thead>
+                <tbody>
+                    <tr>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+        </p>
+        
+
+        <script>
+            csv_url = false ? "category-brands.csv" : "https://raw.githubusercontent.com/bernardo-dauria/2021-02-10-example/main/category-brands.csv";
+            d3.csv(csv_url).then(tidying)
+
+            function makeHeader(d) {
+                d3.select("table thead").selectAll("tr").remove()
+
+                d3.select("table thead")
+                    .append("tr")
+                    .selectAll("th")
+                    .data(columns)
+                    .join("th").text(e => e)
+            }
+
+            var data, columns, maxValue;
+            function tidying(d) {
+                data = d;
+                columns = d.columns;
+                maxValue = d3.reduce(d, (p, v) => Math.max(p,v.value) , 0)
+
+                dates = Array.from(new Set(d.map(e => e.date)));
+                dateSelector(dates);
+
+                updateSelect()
+
+            
+            }
+
+            function dateSelector(d) {
+                d.sort((a,b) => d3.ascending(a.date, b.date));    
+                htmlNode = d3.select("#dateSelector");
+                htmlNode.append("label")
+                .attr("for", "dates")
+                .text("Choose a date: ");
+                htmlNode.append("select")
+                .attr("id", "dates")
+                .on("change", d => updateSelect(d))
+                .selectAll("option")
+                .data(d).enter()
+                .append("option")
+                .attr("value", e => e)
+                .text(e => e.slice(0,4));
+            }
+
+            function updateSelect(e) {
+                val = d3.select("select").node().value
+                fdata = d3.filter(data, d => d.date == val)
+                fdata = fdata.slice(0,10);
+                updateTable(fdata)
+                updateChart(fdata)
+                updateChart(fdata)
+            }  
+
+            function updateChart(data) {
+                svg =  d3.select("#myCanvas");
+                w = svg.node().width.baseVal.value;
+                h = svg.node().height.baseVal.value;
+
+                x = d3.scaleLinear([0, data.length], [0, w])
+                y = d3.scaleLinear([0, maxValue], [0,h])
+                cat = new Set(d3.map(data, d => d.category))
+                color = d3.scaleOrdinal(cat, d3.schemeTableau10)
+
+                svgBind = svg.text("")
+                    .selectAll("rect")
+                    .data(data)
+
+                svgBind.enter()
+                    .append('rect')
+                    .attr('x', (d , i) => x(i))
+                    .attr('y', d => y(maxValue - d.value))
+                    .attr('height', d => y(d.value))
+                    .attr('width', x(1)*0.95)
+                    .attr('fill',d=>(d.name==company ? 'rgb(250, 163, 37)' :'rgb(35, 110, 142)'))
+                   
+                svgBind.enter()
+                    .append("text")
+                    .attr('x', 0)
+                    .attr('y', 0)
+                    .attr('transform', 
+                          (d , i) => 'translate(' + x(i+0.5) +
+                            ',' + y(maxValue - d.value - 5000)+'),' 
+                            + 'rotate(-90)')
+                    .text(d => d.name);
+            }
+
+            function colorP() {
+                d3.selectAll("p").style("color", "rgb(35, 110, 142)");
+            }
+
+            function updateTable(d) {
+                d3.select("table tbody")
+                    .selectAll("tr")
+                    .data(d)
+                    .join("tr")
+                    .selectAll("td")
+                    .data(e => columns.map(x => e[x]))
+                    .join("td")
+                        .text(x => x)
+                        .on("click",x => ClickUpdatefunction(x))
+                    
+            }
+
+            var company;
+
+            function ClickUpdatefunction(x){
+               company = x.target.innerText;
+               updateSelect()
+
+            }
+            
+        
+            
+        </script>
+    </body>
+</html>
